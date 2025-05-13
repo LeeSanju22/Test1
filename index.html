@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Logistic Report</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/powerbi-client/2.23.7/powerbi.min.js"></script>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-image: url("https://images.wallpapersden.com/image/download/cybersecurity-core_bmdrZ2mUmZqaraWkpJRmbmdsrWZlbWU.jpg");
+        background-size: cover;
+        background-position: center;
+        color: rgb(243, 238, 238);
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        height: 100vh;
+        padding-top: 50px;
+        position: relative;
+      }
+
+      canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 0;
+        pointer-events: none;
+      }
+
+      h1 {
+        text-align: center;
+        font-size: 2.5rem;
+        margin-bottom: 20px;
+        background-color: rgba(0, 0, 0, 0.6);
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        z-index: 1;
+      }
+
+      select,
+      button {
+        margin: 10px;
+        padding: 10px;
+        font-size: 16px;
+        border-radius: 5px;
+        border: none;
+        z-index: 1;
+      }
+
+      select {
+        text-align: center;
+        text-align-last: center;
+        direction: ltr;
+      }
+
+      #embedContainer {
+        width: 90%;
+        height: 600px;
+        margin-top: 20px;
+        display: none;
+        z-index: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="matrix-canvas"></canvas>
+
+    <h1>Logistic Report</h1>
+
+    <select id="ontimeFilter">
+      <option value="">Overview</option>
+      <option value="On time">On time</option>
+      <option value="Late">Late</option>
+      <option value="Not Delivered">Not Delivered</option>
+    </select>
+
+    <button id="view-report">Enter</button>
+
+    <div id="embedContainer"></div>
+
+    <script>
+      // Matrix Truck Effect
+      const canvas = document.getElementById("matrix-canvas");
+      const ctx = canvas.getContext("2d");
+
+      canvas.height = window.innerHeight;
+      canvas.width = window.innerWidth;
+
+      //const truck = "⚚";
+      const fontSize = 10;
+      const columns = Math.floor(canvas.width / fontSize);
+      const drops = Array(columns).fill(1);
+
+      function drawMatrix() {
+        ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.font = fontSize + "px serif";
+        ctx.fillStyle = "black";
+
+        for (let i = 0; i < drops.length; i++) {
+          ctx.fillText(truck, i * fontSize, drops[i] * fontSize);
+
+          if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+            drops[i] = 0;
+          }
+
+          drops[i]++;
+        }
+      }
+
+      setInterval(drawMatrix, 80);
+    </script>
+
+    <script>
+      window.onload = function () {
+        document
+          .getElementById("view-report")
+          .addEventListener("click", async () => {
+            const selectedValue =
+              document.getElementById("ontimeFilter").value;
+
+            try {
+              const response = await fetch("/get-embed-token", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+              });
+
+              if (!response.ok) throw new Error("Failed to get embed token");
+
+              const data = await response.json();
+              const embedToken = data.embedToken;
+
+              const embedConfig = {
+                type: "report",
+                tokenType: 1,
+                accessToken: embedToken,
+                embedUrl:
+                  "https://app.powerbi.com/reportEmbed?reportId=edf031ef-a1d4-43fe-b6d0-befbe2df28c0&groupId=1a978e01-97d3-4ea8-bc60-6ab74d6e2d6b",
+                id: "edf031ef-a1d4-43fe-b6d0-befbe2df28c0",
+                permissions: 7,
+                settings: {
+                  panes: {
+                    filters: { visible: false },
+                    pageNavigation: { visible: true },
+                  },
+                  background: 1,
+                },
+                filters: selectedValue
+                  ? [
+                      {
+                        $schema:
+                          "http://powerbi.com/product/schema#basic",
+                        target: {
+                          table: "public Invoice",
+                          column: "ontime or late",
+                        },
+                        operator: "In",
+                        values: [selectedValue],
+                      },
+                    ]
+                  : [],
+              };
+
+              const embedContainer =
+                document.getElementById("embedContainer");
+              embedContainer.style.display = "block";
+              powerbi.embed(embedContainer, embedConfig);
+            } catch (error) {
+              alert("Error: " + error.message);
+            }
+          });
+      };
+    </script>
+  </body>
+</html>
